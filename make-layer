@@ -1,0 +1,91 @@
+#!/usr/bin/env bash
+set -e
+
+
+layer_name=""
+python_runtime=""
+requirements_file=""
+
+
+usage() {
+  echo "Create a lambda layer for python packages"
+  echo "Usage (-n and -p are required options):"
+  echo "make-layer -h"
+  echo "make-layer -n LAYER_NAME -p PYTHON_RUNTIME PACKAGE_1 [PACKAGE_2] ..."
+  echo "make-layer -n LAYER_NAME -p PYTHON_RUNTIME -r PATH_TO_REQUIREMENTS_FILE"
+}
+
+
+while getopts ':hn:p:r:' opt; do
+  case ${opt} in
+    n )
+      layer_name="$OPTARG"
+      ;;
+    p )
+      python_runtime="$OPTARG"
+      ;;
+    r )
+      requirements_file="$OPTARG"
+      ;;
+    h )
+      usage
+      exit 0
+      ;;
+    \? )
+      echo "Invalid option: $OPTARG" 1>&2
+      usage
+      exit 1
+      ;;
+    : )
+      echo "Option -$OPTARG requires an argument" 1>&2
+      usage
+      exit 1
+      ;;
+  esac
+done
+
+if [[ -z "$layer_name" || -z "$python_runtime" ]]; then
+  usage
+  exit 1
+fi
+
+
+shift $((OPTIND -1))
+
+python_libs="$@"
+output_folder="$(mktemp -d)"
+python_folder="python/lib/$python_runtime/site-packages/"
+package_folder="$output_folder/$python_folder"
+
+docker_image="amazon/aws-sam-cli-build-image-$python_runtime:latest"
+
+
+if [[ ! -z "$requirements_file" ]] && [[ ! -f "$requirements_file" ]]; then
+  echo "Error: File $requirements_file not found"
+  exit 1
+elif [[ ! -z "$requirements_file" ]] && [[ -f "$requirements_file" ]]; then
+  echo "Including packages from requirements file $requirements_file"
+  cp "$requirements_file" "$output_folder/requirements.txt"
+  pip_command="pip install -r requirements.txt -t $python_folder"
+else
+  echo "Including the following packages: $@"
+  pip_command="pip install $python_libs -t $python_folder"
+fi
+
+zip_command="zip -r layer.zip *"
+
+
+echo "Building layer"
+docker run --rm -v "$output_folder:/layer" -w "/layer" "$docker_image" /bin/bash -c "$pip_command && $zip_command"
+
+
+pushd "$output_folder"
+echo "Uploading layer $layer_name to AWS"
+aws lambda publish-layer-version --layer-name "$layer_name" --compatible-runtimes "$python_runtime" --zip-file "fileb://layer.zip"
+popd
+
+echo "Cleaning up"
+rm -rf "$output_folder"
+
+
+echo "All done. Enjoy your shiny new Lambda layer!"
