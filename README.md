@@ -1,7 +1,7 @@
 # AWS Lambda Layer Builder
 
 
-If you've ever needed to build a Python Lambda layer
+If you've ever needed to build a Lambda layer
 quickly and easily, this tool is for you.
 
 
@@ -14,6 +14,11 @@ quickly and easily, this tool is for you.
 ## Installation
 
 Copy the `make-layer` file to a location on your path, e.g. `cp make-layer /usr/local/bin/`.
+
+Quick Install:
+```bash
+INSTALL_LOC=/usr/local/bin/make-layer; curl https://raw.githubusercontent.com/aws-samples/aws-lambda-layer-builder/main/make-layer > $INSTALL_LOC; chmod +x $INSTALL_LOC
+```
 
 
 ## Usage
@@ -30,14 +35,14 @@ Run `make-layer -h` for full usage instructions.
 make-layer -n LAYER_NAME -p PYTHON_RUNTIME PACKAGE_1 [PACKAGE_2] ..."
 ```
 
-`LAYER_NAME` is a valid Lambda layer name (letters, numbers, hyphens, and underscores),
-`PYTHON_RUNTIME` is a valid Python runtime identifier (e.g. `python2.7`, `python3.8`), and
-`PACKAGE_1`, `PACKAGE_2`, etc. are the Python packages to be installed.
+- `LAYER_NAME` is a valid Lambda layer name (letters, numbers, hyphens, and underscores)
+- `RUNTIME` is a valid lambda runtime identifier (e.g. `python2.7`, `python3.8`)
+- `PACKAGE_1`, `PACKAGE_2`, etc. are the packages to be installed.
 
 ### Requirements File
 
 ```python3
-make-layer -n LAYER_NAME -p PYTHON_RUNTIME -r PATH_TO_REQUIREMENTS_FILE
+make-layer LAYER_NAME RUNTIME -r PATH_TO_REQUIREMENTS_FILE
 ```
 
 `PATH_TO_REQUIREMENTS_FILE` is the full path and filename of a valid `pip`

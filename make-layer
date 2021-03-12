@@ -1,32 +1,22 @@
 #!/usr/bin/env bash
 set -e
 
-
-layer_name=""
-python_runtime=""
-requirements_file=""
+LAYER_NAME=$1
+RUNTIME=$2
+REQUIREMENTS=${@:3}
 
 
 usage() {
-  echo "Create a lambda layer for python packages"
-  echo "Usage (-n and -p are required options):"
+  echo "Create lambda layers"
   echo "make-layer -h"
-  echo "make-layer -n LAYER_NAME -p PYTHON_RUNTIME PACKAGE_1 [PACKAGE_2] ..."
-  echo "make-layer -n LAYER_NAME -p PYTHON_RUNTIME -r PATH_TO_REQUIREMENTS_FILE"
+  echo "make-layer <LAYER_NAME> <RUNTIME> PACKAGE_1 [PACKAGE_2] ..."
+  echo "make-layer <LAYER_NAME> <RUNTIME> -r PATH_TO_REQUIREMENTS_FILE"
+  echo ""
+  echo "Languages Currently Supported: Python"
 }
-
 
 while getopts ':hn:p:r:' opt; do
   case ${opt} in
-    n )
-      layer_name="$OPTARG"
-      ;;
-    p )
-      python_runtime="$OPTARG"
-      ;;
-    r )
-      requirements_file="$OPTARG"
-      ;;
     h )
       usage
       exit 0
@@ -44,44 +34,47 @@ while getopts ':hn:p:r:' opt; do
   esac
 done
 
-if [[ -z "$layer_name" || -z "$python_runtime" ]]; then
+if [ "$#" -lt 2 ]; then
+   echo "ERROR: Missing required arguments"
+   usage
+   exit 1
+fi
+
+shift $((OPTIND -1))
+output_folder="$(mktemp -d)"
+docker_image="amazon/aws-sam-cli-build-image-$RUNTIME:latest"
+
+if [[ $2 == python* ]] ; then
+    echo 'Create Python Commands'
+    lang_folder="python/lib/$RUNTIME/site-packages/"
+
+    if [ "$3" == "-r" ]; then
+      echo "Including packages from requirements file $4"
+      cp "$4" "$output_folder/requirements.txt"
+      install_command="pip install -r requirements.txt -t $lang_folder"
+    else
+      echo "Including the following packages: $REQUIREMENTS"
+      install_command="pip install $REQUIREMENTS -t $lang_folder"
+    fi
+elif [[ $2 == node* ]] ; then
+  echo "Node has not been implemented. You are the weakest link. Good bye."
+else
   usage
   exit 1
 fi
 
-
-shift $((OPTIND -1))
-
-python_libs="$@"
-output_folder="$(mktemp -d)"
-python_folder="python/lib/$python_runtime/site-packages/"
-package_folder="$output_folder/$python_folder"
-
-docker_image="amazon/aws-sam-cli-build-image-$python_runtime:latest"
-
-
-if [[ ! -z "$requirements_file" ]] && [[ ! -f "$requirements_file" ]]; then
-  echo "Error: File $requirements_file not found"
-  exit 1
-elif [[ ! -z "$requirements_file" ]] && [[ -f "$requirements_file" ]]; then
-  echo "Including packages from requirements file $requirements_file"
-  cp "$requirements_file" "$output_folder/requirements.txt"
-  pip_command="pip install -r requirements.txt -t $python_folder"
-else
-  echo "Including the following packages: $@"
-  pip_command="pip install $python_libs -t $python_folder"
-fi
-
+package_folder="$output_folder/$lang_folder"
 zip_command="zip -r layer.zip *"
 
 
 echo "Building layer"
-docker run --rm -v "$output_folder:/layer" -w "/layer" "$docker_image" /bin/bash -c "$pip_command && $zip_command"
+docker run --rm -v "$output_folder:/layer" -w "/layer" "$docker_image" /bin/bash -c "$install_command && $zip_command"
 
 
 pushd "$output_folder"
-echo "Uploading layer $layer_name to AWS"
-aws lambda publish-layer-version --layer-name "$layer_name" --compatible-runtimes "$python_runtime" --zip-file "fileb://layer.zip"
+echo "Uploading layer $LAYER_NAME to AWS"
+aws lambda publish-layer-version --layer-name "$LAYER_NAME" --compatible-runtimes "$RUNTIME" --zip-file "fileb://layer.zip"
+echo "Upload complete"
 popd
 
 echo "Cleaning up"
