@@ -1,81 +1,75 @@
 #!/usr/bin/env bash
 set -e
 
-LAYER_NAME=$1
-RUNTIME=$2
-REQUIREMENTS=${@:3}
-
 
 usage() {
-  echo "Create lambda layers"
-  echo "make-layer -h"
-  echo "make-layer <LAYER_NAME> <RUNTIME> PACKAGE_1 [PACKAGE_2] ..."
-  echo "make-layer <LAYER_NAME> <RUNTIME> -r PATH_TO_REQUIREMENTS_FILE"
+  echo "AWS Lambda Layer Builder"
+  echo "------------------------"
+  echo "make-layer NAME RUNTIME PACKAGE_1 [PACKAGE_2] ..."
+  echo "make-layer NAME RUNTIME MANIFEST"
   echo ""
-  echo "Languages Currently Supported: Python"
+  echo "Currently supported runtimes: nodejs*, python*"
 }
 
-while getopts ':hn:p:r:' opt; do
-  case ${opt} in
-    h )
-      usage
-      exit 0
-      ;;
-    \? )
-      echo "Invalid option: $OPTARG" 1>&2
-      usage
-      exit 1
-      ;;
-    : )
-      echo "Option -$OPTARG requires an argument" 1>&2
-      usage
-      exit 1
-      ;;
-  esac
-done
 
-if [ "$#" -lt 2 ]; then
-   echo "ERROR: Missing required arguments"
+if [[ "$#" -lt 3 ]]; then
    usage
    exit 1
 fi
 
-shift $((OPTIND -1))
-output_folder="$(mktemp -d)"
-docker_image="amazon/aws-sam-cli-build-image-$RUNTIME:latest"
+name="${1}"
+runtime="${2}"
+manifest="${3}"
 
-if [[ $2 == python* ]] ; then
-    echo 'Create Python Commands'
-    lang_folder="python/lib/$RUNTIME/site-packages/"
-
-    if [ "$3" == "-r" ]; then
-      echo "Including packages from requirements file $4"
-      cp "$4" "$output_folder/requirements.txt"
-      install_command="pip install -r requirements.txt -t $lang_folder"
-    else
-      echo "Including the following packages: $REQUIREMENTS"
-      install_command="pip install $REQUIREMENTS -t $lang_folder"
-    fi
-elif [[ $2 == node* ]] ; then
-  echo "Node has not been implemented. You are the weakest link. Good bye."
+if test -f "$manifest"; then
+  packages="${@:4}"
 else
-  usage
-  exit 1
+  manifest=""
+  packages="${@:3}"
 fi
 
-package_folder="$output_folder/$lang_folder"
-zip_command="zip -r layer.zip *"
+
+output_folder="$(mktemp -d)"
+docker_image="amazon/aws-sam-cli-build-image-$runtime:latest"
+
+if [[ $runtime == node* ]]; then
+
+  package_folder="nodejs/"
+  mkdir -p "$output_folder/$package_folder"
+  if [[ -n "$manifest" ]]; then
+    cp "$manifest" "$output_folder/$package_folder/package.json"
+  fi
+  install_command="pushd $package_folder; npm install; npm install --save $packages; popd"
+
+elif [[ $runtime == python* ]]; then
+
+  package_folder="python/lib/$runtime/site-packages/"
+  if [[ -n "$manifest" ]]; then
+    cp "$manifest" "$output_folder/requirements.txt"
+  else
+    touch "$output_folder/requirements.txt"
+  fi
+  install_command="pip install -r requirements.txt -t $package_folder $packages"
+
+else
+
+  usage
+  exit 1
+
+fi
 
 
 echo "Building layer"
+zip_command="zip -r layer.zip *"
 docker run --rm -v "$output_folder:/layer" -w "/layer" "$docker_image" /bin/bash -c "$install_command && $zip_command"
 
 
 pushd "$output_folder"
-echo "Uploading layer $LAYER_NAME to AWS"
-aws lambda publish-layer-version --layer-name "$LAYER_NAME" --compatible-runtimes "$RUNTIME" --zip-file "fileb://layer.zip"
+echo "Uploading layer $name to AWS"
+aws lambda publish-layer-version --layer-name "$name" --compatible-runtimes "$runtime" --zip-file "fileb://layer.zip"
 echo "Upload complete"
 popd
+
 
 echo "Cleaning up"
 rm -rf "$output_folder"

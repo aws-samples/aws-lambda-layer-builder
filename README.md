@@ -15,7 +15,8 @@ quickly and easily, this tool is for you.
 
 Copy the `make-layer` file to a location on your path, e.g. `cp make-layer /usr/local/bin/`.
 
-Quick Install:
+Download and install with a single command by copying and pasting the following into a terminal:
+
 ```bash
 INSTALL_LOC=/usr/local/bin/make-layer; curl https://raw.githubusercontent.com/aws-samples/aws-lambda-layer-builder/main/make-layer > $INSTALL_LOC; chmod +x $INSTALL_LOC
 ```
@@ -24,42 +25,44 @@ INSTALL_LOC=/usr/local/bin/make-layer; curl https://raw.githubusercontent.com/aw
 ## Usage
 
 This tool can either take a list of packages to include in the layer,
-or a requirements file. It assumes the AWS CLI is already properly
-configured.
+or a package manifest file valid for the specified runtime. It assumes
+the AWS CLI is already properly configured.
 
-Run `make-layer -h` for full usage instructions.
+Run `make-layer` without parameters for full usage instructions.
+
+### Manifest File
+
+```bash
+make-layer NAME RUNTIME MANIFEST
+```
+
+*  `NAME` is a valid Lambda layer name (letters, numbers, hyphens, and underscores)
+*  `RUNTIME` is a valid Lambda runtime identifier (e.g. `nodejs10.x`, `python3.8`)
+*  `MANIFEST` is the full path and filename of a valid manifest file. The following
+   types are supported:
+   *  Node.js: [`package.json`](https://docs.npmjs.com/files/package.json/)
+   *  Python: [`requirements.txt`](https://pip.pypa.io/en/stable/user_guide/#requirements-files)
+
+If the manifest file is not found the parameters are presumed to be explicit package names.
 
 ### Explicit List
 
-```python3
-make-layer -n LAYER_NAME -p PYTHON_RUNTIME PACKAGE_1 [PACKAGE_2] ..."
+```bash
+make-layer NAME RUNTIME PACKAGE_1 [PACKAGE_2] ...
 ```
 
-- `LAYER_NAME` is a valid Lambda layer name (letters, numbers, hyphens, and underscores)
-- `RUNTIME` is a valid lambda runtime identifier (e.g. `python2.7`, `python3.8`)
-- `PACKAGE_1`, `PACKAGE_2`, etc. are the packages to be installed.
-
-### Requirements File
-
-```python3
-make-layer LAYER_NAME RUNTIME -r PATH_TO_REQUIREMENTS_FILE
-```
-
-`PATH_TO_REQUIREMENTS_FILE` is the full path and filename of a valid `pip`
-[requirements file](https://pip.pypa.io/en/stable/user_guide/#requirements-files).
-
+*  `PACKAGE_1`, `PACKAGE_2`, etc. are the packages to be installed.
 
 ## To-Do
 
 *  Add parameter for AWS profile to use (currently uses default, or honors AWS_PROFILE)
-*  Add support for additional runtimes other than Python (e.g. Node.js)
+*  Add support for additional runtimes
 
 
 ## Contributing
 
-Pull requests are welcomed. Please lint all changes with `flake8 --max-line-length=120`
-before submitting. Also review the [Contributing Guidelines](CONTRIBUTING.md) and
-the [Code of Conduct](CODE_OF_CONDUCT.md).
+Pull requests are welcomed. Please review the [Contributing Guidelines](CONTRIBUTING.md)
+and the [Code of Conduct](CODE_OF_CONDUCT.md).
 
 
 ## Security
@@ -69,6 +72,7 @@ See [CONTRIBUTING](CONTRIBUTING.md#security-issue-notifications) for more inform
 
 ## Authors
 
+*  Drew Mullen (drmullen@amazon.com)
 *  Jud Neer (judneer@amazon.com)
 
 
