@@ -37,7 +37,7 @@ make-layer NAME RUNTIME MANIFEST
 ```
 
 *  `NAME` is a valid Lambda layer name (letters, numbers, hyphens, and underscores)
-*  `RUNTIME` is a valid Lambda runtime identifier (e.g. `nodejs10.x`, `python3.8`)
+*  `RUNTIME` is a valid Lambda runtime identifier (e.g. `nodejs14.x`, `python3.8`)
 *  `MANIFEST` is the full path and filename of a valid manifest file. The following
    types are supported:
    *  Node.js: [`package.json`](https://docs.npmjs.com/files/package.json/)
