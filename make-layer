@@ -31,6 +31,7 @@ fi
 
 output_folder="$(mktemp -d)"
 docker_image="amazon/aws-sam-cli-build-image-$runtime:latest"
+volume_params="-v $output_folder:/layer"
 
 if [[ $runtime == node* ]]; then
 
@@ -40,6 +41,7 @@ if [[ $runtime == node* ]]; then
     cp "$manifest" "$output_folder/$package_folder/package.json"
   fi
   install_command="pushd $package_folder; npm install; npm install --save $packages; popd"
+  volume_params="$volume_params -v $HOME/.npmrc:/root/.npmrc"
 
 elif [[ $runtime == python* ]]; then
 
@@ -50,6 +52,7 @@ elif [[ $runtime == python* ]]; then
     touch "$output_folder/requirements.txt"
   fi
   install_command="pip install -r requirements.txt -t $package_folder $packages"
+  volume_params="$volume_params -v $HOME/.config/pip:/root/.config/pip"
 
 else
 
@@ -61,7 +64,7 @@ fi
 
 echo "Building layer"
 zip_command="zip -r layer.zip *"
-docker run --rm -v "$output_folder:/layer" -w "/layer" "$docker_image" /bin/bash -c "$install_command && $zip_command"
+docker run --rm $volume_params -w "/layer" "$docker_image" /bin/bash -c "$install_command && $zip_command"
 
 
 pushd "$output_folder"
