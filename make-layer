@@ -30,7 +30,7 @@ fi
 
 
 output_folder="$(mktemp -d)"
-docker_image="amazon/aws-sam-cli-build-image-$runtime:latest"
+docker_image="public.ecr.aws/sam/build-$runtime:latest"
 volume_params="-v $output_folder:/layer"
 
 if [[ $runtime == node* ]]; then
